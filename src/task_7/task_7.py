@@ -3,6 +3,7 @@ import numpy as np
 import cv2 as cv
 import glob
 import json
+import sys
 from mpl_toolkits.mplot3d import Axes3D
 
 def load_camera_parameters():
@@ -25,14 +26,24 @@ def get_undistorted_image(original_image, intrinsic_matrix, distortion_coefficie
         cv.imwrite("../../output/task_7/undistorted_image.png", undistorted_img)
     return undistorted_img
 
-def plot_images(image1, image2):
+def plot_image(image, write_to_file = True, filename = "Image_plot.png"):
+    plt.figure(figsize=(24, 9))
+    plt.imshow(image, cmap = 'gray')
+    if(write_to_file):
+        plt.savefig("../../output/task_7/"+ filename)
+    plt.show()
+
+def plot_images_2(image1, image2, write_to_file = True, filename = "Plotted_Images.png"):
     f, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 9))
     f.tight_layout()
     ax1.imshow(image1, cmap = 'gray')
     ax1.set_title('Image 1', fontsize=30)
     ax2.imshow(image2, cmap = 'gray')
     ax2.set_title('Image 2', fontsize=30)
+    if(write_to_file):
+        plt.savefig("../../output/task_7/"+ filename)
     plt.show()
+
 
 def get_localised_max_keypoints(keyp_desc, window_size = 10):
     kp_map = {}
@@ -81,7 +92,7 @@ def scatter_plot(triangulated_pts):
     ax.set_zlabel('Z Axis')
     plt.show()
 
-def scatter_plot_with_cam(traingulated_pts, R, t):
+def scatter_plot_with_cam(traingulated_pts, R, t, write_to_file = True, file_name = "scatter plot.png"):
     x,y,z,w = triangulated_pts
     x = np.asarray(x)
     y = np.asarray(y)
@@ -102,8 +113,13 @@ def scatter_plot_with_cam(traingulated_pts, R, t):
     T = np.column_stack([R,t])
     rotated_c1 = np.matmul(T, c1)
     ax.plot([c1[0,0],c1[0,1]], [c1[1,0],c1[1,1]], [c1[2,0],c1[2,1]])
+    ax.text(c1[0,0],c1[1,0],c1[2,0]-0.05, "0")
     ax.plot([rotated_c1[0,0],rotated_c1[0,1]], [rotated_c1[1,0],rotated_c1[1,1]], [rotated_c1[2,0],rotated_c1[2,1]])
+    ax.text(rotated_c1[0,0],rotated_c1[1,0],rotated_c1[2,0]-0.05, "1")
+    if(write_to_file):
+        plt.savefig("../../output/task_7/"+ file_name)
     plt.show()
+
 
 def triangulate_scatter_plot(matches, kp_l, kp_r, P1, P2, R, t):
     points1 = np.zeros([len(matches),1,2])
@@ -120,17 +136,34 @@ def triangulate_scatter_plot(matches, kp_l, kp_r, P1, P2, R, t):
     triangulated_pts = cv.triangulatePoints(P1,P2,points1_re,points2_re)
     scatter_plot_with_cam(triangulated_pts, R, t)
 
-def get_locl_max_keypoints(image1_kp, image1_desc):
+def get_local_max_keypoints(image1_kp, image1_desc):
     kp_desc_l = join_arrays(image1_kp, image1_desc)
     kp_desc_l_max = get_localised_max_keypoints(kp_desc_l)
     kp_l_max, desc_l_max = split_arrays(kp_desc_l_max)
     return kp_l_max, desc_l_max
 
+def save_results_into_file(essential_matrix, R, t, camera):
+    with open("../../parameters/task_7_{0}_{1}_{2}.txt".format(camera[0], camera[1], camera[2]),"w") as f:
+        f.write("Essential Matrix:\n")
+        f.write(str(essential_matrix)+"\n\n")
+        f.write("Rotation:\n")
+        f.write(str(R)+"\n\n")
+        f.write("Translation:\n")
+        f.write(str(t)+"\n")
+
 
 if __name__ == "__main__":
-    LEFT = True
-    IMG1_INDEX = 1
-    IMG2_INDEX = 2
+    IMG1_INDEX = 0
+    IMG2_INDEX = 1
+    side = "left"
+
+    if(len(sys.argv) == 4):
+        side = sys.argv[1].lower()
+        IMG1_INDEX = sys.argv[2]
+        IMG2_INDEX = sys.argv[3]
+
+    LEFT = False if side == "right" else True
+
 
     side = "left" if LEFT else "right"
     img1_path = "../../images/task_7/{0}_{1}.png".format(side,IMG1_INDEX)
@@ -147,13 +180,11 @@ if __name__ == "__main__":
 
     camera_intrinsic_matrix = left_intrinsic_matrix if LEFT else right_intrinsic_matrix
     camera_distortion_coeffecients = left_distortion_coeffecients if LEFT else right_distortion_coeffecients
-
-    print(camera_intrinsic_matrix)
     
     # undistort images
     undistorted_img_1 = get_undistorted_image(img1,camera_intrinsic_matrix, camera_distortion_coeffecients)
     undistorted_img_2 = get_undistorted_image(img2,camera_intrinsic_matrix, camera_distortion_coeffecients)
-    plot_images(undistorted_img_1, undistorted_img_2)
+    plot_images_2(undistorted_img_1, undistorted_img_2, write_to_file=True, filename="Unidistorted_Images_{0}_{1}_{2}.png".format(side, IMG1_INDEX, IMG2_INDEX))
     
     # Get feature points
     orb = cv.ORB_create()
@@ -161,21 +192,19 @@ if __name__ == "__main__":
     kp_2, des_2 = orb.detectAndCompute(undistorted_img_2,None)
     
     # Obtain local maximas
-    image1_kp_max, image1_desc_max = get_locl_max_keypoints(kp_1, des_1)
-    image2_kp_max, image2_desc_max = get_locl_max_keypoints(kp_2, des_2)
+    image1_kp_max, image1_desc_max = get_local_max_keypoints(kp_1, des_1)
+    image2_kp_max, image2_desc_max = get_local_max_keypoints(kp_2, des_2)
 
     # Plot keypoints
     kp1_img = cv.drawKeypoints(undistorted_img_1, image1_kp_max, undistorted_img_1.copy(), color=(0,255,0), flags=0)
     kp2_img = cv.drawKeypoints(undistorted_img_2, image2_kp_max, undistorted_img_2.copy(), color=(0,255,0), flags=0)
-    plot_images(kp1_img, kp2_img)
+    plot_images_2(kp1_img, kp2_img, write_to_file=True, filename="Keypoint_Images_{0}_{1}_{2}.png".format(side, IMG1_INDEX, IMG2_INDEX))
 
     # Match the new keypoints on both the images
     bf = cv.BFMatcher_create(normType = cv.NORM_HAMMING)
     matches = bf.match(image1_desc_max,image2_desc_max)
     image_with_all_matches = cv.drawMatches(undistorted_img_1,image1_kp_max,undistorted_img_2,image2_kp_max,matches, None, flags=2)
-    plt.figure(figsize=(24, 9))
-    plt.imshow(image_with_all_matches, cmap = 'gray')
-    plt.show()
+    plot_image(image_with_all_matches, True, "All_matches_{0}_{1}_{2}.png".format(side, IMG1_INDEX, IMG2_INDEX))
 
 
     # Get corresponding feature image points on both the images.
@@ -204,14 +233,18 @@ if __name__ == "__main__":
 
     # Draw Matches
     filtered_matches_img = cv.drawMatches(undistorted_img_1,image1_kp_max,undistorted_img_2,image2_kp_max, new_matches, None, flags=2)
-    plt.figure(figsize=(24, 9))
-    plt.imshow(filtered_matches_img, cmap = 'gray')
-    plt.show()
+    plot_image(filtered_matches_img, True, "Filtered_matches_{0}_{1}_{2}.png".format(side, IMG1_INDEX, IMG2_INDEX))
 
     # Triagulation method 1
     # Recover the camera pose using the essential matrix and get the triangulated points
     retval, R, t, mask2, triangulated_pts = cv.recoverPose(essential_mat, new_img1_matches, new_img2_matches, camera_intrinsic_matrix, 10, None, None, None)
-    scatter_plot_with_cam(triangulated_pts, R, t)
+    T = np.column_stack([R,t])
+    T = np.append(T, [[0,0,0,1]], axis=0)
+    inv_T = np.linalg.inv(T)
+    new_r = inv_T[:3,:3]
+    new_t = inv_T[:3,3]
+    save_results_into_file(essential_mat, new_r, new_t, (side, IMG1_INDEX, IMG2_INDEX))
+    scatter_plot_with_cam(triangulated_pts, new_r, new_t, True, "Pose_View_{0}_{1}_{2}.png".format(side, IMG1_INDEX, IMG2_INDEX))
 
     # Triagulation method 2. Calculate P1 and P2 and use triangulate points method
     # P1 = np.column_stack((np.identity(3,dtype=np.float64),np.zeros([3,1],dtype=np.float64)))
