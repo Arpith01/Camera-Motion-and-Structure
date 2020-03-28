@@ -45,7 +45,7 @@ def plot_images_2(image1, image2, write_to_file = True, filename = "Plotted_Imag
     plt.show()
 
 
-def get_localised_max_keypoints(keyp_desc, window_size = 10):
+def filter_keypoints(keyp_desc, window_size = 10):
     kp_map = {}
     for kp_s_i in keyp_desc:
         window_x = kp_s_i[0].pt[0]//window_size
@@ -138,7 +138,7 @@ def triangulate_scatter_plot(matches, kp_l, kp_r, P1, P2, R, t):
 
 def get_local_max_keypoints(image1_kp, image1_desc):
     kp_desc_l = join_arrays(image1_kp, image1_desc)
-    kp_desc_l_max = get_localised_max_keypoints(kp_desc_l)
+    kp_desc_l_max = filter_keypoints(kp_desc_l)
     kp_l_max, desc_l_max = split_arrays(kp_desc_l_max)
     return kp_l_max, desc_l_max
 
